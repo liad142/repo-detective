@@ -151,7 +151,7 @@ The important boundary is that the agent never receives arbitrary HTTP or databa
 
 The agent can selectively use:
 
-- repository metadata and repository files
+- repository metadata, repository files, and directory listings (so manifests are located, not guessed)
 - commits, commit details, and ref comparison
 - contributors
 - issues and issue comments

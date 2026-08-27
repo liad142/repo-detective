@@ -64,10 +64,12 @@ INVESTIGATION_TOOL_DEFINITIONS = [
     ),
     _tool(
         "read_repository_file",
-        "Read a bounded text file such as README, SECURITY.md, or a package manifest.",
+        "Read a bounded text file such as README, SECURITY.md, or a package manifest. "
+        "If the path is a directory (use \"\" for the repository root), returns its listing "
+        "so you can locate manifests instead of guessing paths.",
         {
             "repository": {"type": "string", "description": "owner/repo; omit for primary"},
-            "path": {"type": "string"},
+            "path": {"type": "string", "description": "File or directory path; \"\" lists the root"},
             "ref": {"type": "string", "description": "Branch, tag, or commit SHA"},
         },
         ["path"],
@@ -387,12 +389,35 @@ class GitHubToolRegistry:
     def read_repository_file(self, investigation: dict[str, Any], step_id: str, args: dict[str, Any]) -> ToolResult:
         owner, repo = self._repository(investigation, args)
         path = str(args.get("path", "")).strip("/")
-        if not path or any(part in {".", ".."} for part in path.split("/")) or "\x00" in path:
+        if any(part in {".", ".."} for part in path.split("/")) or "\x00" in path:
             raise ValueError("path must be a safe repository-relative file path")
         ref = args.get("ref")
         params = {"ref": ref} if ref else {}
-        encoded_path = "/".join(urllib.parse.quote(part, safe="") for part in path.split("/"))
+        encoded_path = "/".join(urllib.parse.quote(part, safe="") for part in path.split("/") if part)
         response = self.client.get(f"/repos/{owner}/{repo}/contents/{encoded_path}", params)
+
+        # A directory comes back as a list; expose the listing so the agent can
+        # locate manifests instead of spending calls on guessed paths.
+        if response.status == 200 and isinstance(response.body, list):
+            entries = [
+                {"name": item.get("name"), "type": item.get("type"), "size": item.get("size")}
+                for item in response.body[:200]
+                if isinstance(item, dict)
+            ]
+            normalized = {
+                "repository": f"{owner}/{repo}", "path": path or "/", "ref": ref,
+                "entries": entries, "truncated": len(response.body) > 200,
+            }
+            summary = f"Listed {len(entries)} entries in {owner}/{repo}/{path or ''}".rstrip("/")
+            evidence = self._record(
+                investigation["id"], step_id, tool_name="read_repository_file", response=response,
+                params={"repository": f"{owner}/{repo}", "path": path, "ref": ref},
+                summary=summary, normalized=normalized,
+                html_url=f"https://github.com/{owner}/{repo}/tree/{ref or 'HEAD'}/{path}".rstrip("/"),
+            )
+            limitations = ["Directory listing was truncated to 200 entries"] if normalized["truncated"] else []
+            return ToolResult(ToolResultStatus.PARTIAL if limitations else ToolResultStatus.SUCCESS, summary, normalized, [evidence], limitations)
+
         body = response.body if isinstance(response.body, dict) else {}
         content = ""
         truncated = False
