@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repo-detective"
+version = "0.1.0"
+description = "Evidence-grounded AI investigations of public GitHub repositories"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+repo-detective = "repo_detective.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

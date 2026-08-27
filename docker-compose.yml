@@ -1,0 +1,23 @@
+services:
+  app:
+    build: .
+    environment:
+      DATA_DIR: /data
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_API_VERSION: ${GITHUB_API_VERSION:-2026-03-10}
+      OPENAI_TOOL_CHOICE: ${OPENAI_TOOL_CHOICE:-required}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-120}
+      HTTP_TIMEOUT_SECONDS: ${HTTP_TIMEOUT_SECONDS:-30}
+      GITHUB_CACHE_TTL_SECONDS: ${GITHUB_CACHE_TTL_SECONDS:-900}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - repo_detective_data:/data
+    stdin_open: true
+    tty: true
+
+volumes:
+  repo_detective_data:
