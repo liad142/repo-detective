@@ -363,6 +363,17 @@ class InvestigationStore:
                 (utc_now(), error[:4_000], call_id),
             )
 
+    def list_llm_calls(self, investigation_id: str) -> list[dict[str, Any]]:
+        with self.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT purpose, ordinal, status, requested_at, completed_at, error
+                FROM llm_calls WHERE investigation_id = ? ORDER BY requested_at
+                """,
+                (investigation_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def add_step(
         self,
         investigation_id: str,

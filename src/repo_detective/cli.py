@@ -176,6 +176,22 @@ def cmd_resume(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_web(args: argparse.Namespace) -> int:
+    """Local web UI over the same services. Not an authenticated service; bind to localhost."""
+    from .web import WebApp, serve
+
+    runtime = build_runtime(require_llm=True)
+    server = serve(WebApp(runtime), args.host, args.port)
+    print(f"Repo Detective web UI on http://{args.host}:{args.port}  (Ctrl+C to stop)")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print()
+    finally:
+        server.server_close()
+    return 0
+
+
 def cmd_finalize(args: argparse.Namespace) -> int:
     runtime = build_runtime(require_llm=False)
     investigation_id = resolve_id(runtime.store, args.investigation_id)
@@ -278,6 +294,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     resume.add_argument("investigation_id", nargs="?", default="latest")
     resume.set_defaults(func=cmd_resume)
+
+    web = subparsers.add_parser("web", help="Serve the local web UI")
+    web.add_argument("--host", default="0.0.0.0")
+    web.add_argument("--port", type=int, default=8080)
+    web.set_defaults(func=cmd_web)
 
     finalize = subparsers.add_parser(
         "finalize", help="Finalize the provisional verdict without extra calls"

@@ -24,7 +24,7 @@ Every turn is a fresh two-message conversation (system prompt plus a JSON contex
 
 ## Cut for the timebox
 
-- No browser UI; the assignment explicitly allows CLI.
+- The web UI is a local viewer only (stdlib `http.server`, Server-Sent Events read from SQLite, no auth). It is a second adapter over the same services, like `cli.py`; hosting it publicly would need auth and a spend cap and was cut.
 - No OSV integration; GitHub repository and global advisory APIs are implemented first.
 - No full repository clone or static code analysis.
 - No vector database; a 30-step bounded investigation fits a compact evidence ledger.

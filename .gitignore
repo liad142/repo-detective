@@ -13,3 +13,4 @@ data/reports/*.md
 dist/
 build/
 
+.playwright-mcp/

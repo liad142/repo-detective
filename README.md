@@ -41,6 +41,18 @@ docker compose run --rm app chat latest
 
 The named Docker volume preserves investigations between commands.
 
+## Web UI (local)
+
+The same services behind a browser page, for watching an investigation as it happens:
+
+```bash
+docker compose up web        # then open http://localhost:8080
+```
+
+Enter a repository, and the page shows intake, then each agent step as it is written to the log: the rationale and question, the evidence it was based on, a "checking" state while the GitHub call runs, the result, and the new evidence records lighting up in the ledger. Verdicts, budget requests (approve / finalize), provider pauses (resume), the grounded chat, and re-tasking all work from the page. Progress is streamed with Server-Sent Events derived from SQLite, so the page shows exactly what the log stores.
+
+The UI has no authentication and is bound to `127.0.0.1` by compose. It is a local viewer, not a hosted service.
+
 ## Assignment test cases
 
 ```bash
@@ -128,6 +140,7 @@ A request such as `now check the biggest fork` resumes research and may produce 
 ```mermaid
 flowchart TD
     CLI[CLI] --> APP[Application services]
+    WEB[Local web UI] --> APP
     APP --> DOMAIN[Domain rules and state machine]
     APP --> ADAPTERS[Adapters]
     ADAPTERS --> GH[GitHub REST]

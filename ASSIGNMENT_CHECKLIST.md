@@ -33,6 +33,7 @@
 | OpenAI-compatible base URL and model | `OPENAI_BASE_URL`, `OPENAI_MODEL`; direct Chat Completions HTTP; `tool_choice` probe falls back to `auto`; separate LLM timeout | `test_llm.py` |
 | No hardcoded model/vendor logic | Model required from environment | Config tests/manual review |
 | Docker, one investigate command, one chat command | Dockerfile and Compose commands in README | Smoke test |
+| Chat: CLI or web | CLI chat plus a local web UI (`docker compose up web`) with live log, chat, approve/finalize/resume | `test_web.py`; browser run |
 | Public clone/run in five minutes | Dependency-free image and documented setup | Docker smoke test |
 | One-page `DECISIONS.md` | Included | Manual review |
 | No secrets committed | `.env` ignored; `.env.example` placeholders | Repository scan |

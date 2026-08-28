@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repo Detective</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='13' cy='13' r='8' fill='none' stroke='%230E6B78' stroke-width='3.5'/%3E%3Cpath d='M19 19l8 8' stroke='%230E6B78' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #F3F5F6; --surface: #FFFFFF; --surface-2: #E9EEF0; --ink: #17222B; --ink-2: #4A5A64; --ink-3: #7D8B93; --line: #D3DBDF;
+    --accent: #0E6B78; --accent-ink: #0B535D; --accent-soft: #D9EEF0;
+    --adopt: #1E7A46; --adopt-soft: #DDF2E5; --cond: #9A6A0C; --cond-soft: #FBEFD2; --reject: #A83A32; --reject-soft: #F9DFDC;
+    --ok: #1E7A46; --warn: #9A6A0C; --bad: #A83A32;
+    --shadow: 0 1px 2px rgba(23,34,43,.06), 0 8px 24px -12px rgba(23,34,43,.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0F1519; --surface: #161F25; --surface-2: #1E2A31; --ink: #E4EAED; --ink-2: #AEBBC3; --ink-3: #7F8E97; --line: #2B3940;
+      --accent: #5BC3CE; --accent-ink: #8ADCE4; --accent-soft: #113A40;
+      --adopt: #5FCB8B; --adopt-soft: #12321F; --cond: #E7B44A; --cond-soft: #3A2C0C; --reject: #F08B82; --reject-soft: #3F1B18;
+      --ok: #5FCB8B; --warn: #E7B44A; --bad: #F08B82;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; font-size: 15px; line-height: 1.5; }
+  a { color: var(--accent-ink); }
+  button, input { font: inherit; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+  header.top { position: sticky; top: 0; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+  .top-inner { max-width: 1280px; margin: 0 auto; padding: 14px 24px; display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center; }
+  @media (max-width: 860px) { .top-inner { grid-template-columns: 1fr; gap: 10px; } }
+  .brand { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 20px; letter-spacing: -.01em; white-space: nowrap; }
+  .brand small { display: block; font-family: "IBM Plex Mono", monospace; font-weight: 400; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-ink); }
+  form.run { display: flex; gap: 8px; }
+  form.run input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+  .btn { padding: 10px 16px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; font-weight: 600; white-space: nowrap; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.ghost { background: transparent; color: var(--accent-ink); }
+  .btn.small { padding: 6px 12px; font-size: 13px; }
+  select { padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); max-width: 320px; }
+
+  .shell { max-width: 1280px; margin: 0 auto; padding: 20px 24px 80px; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; }
+  @media (max-width: 1000px) { .shell { grid-template-columns: 1fr; } }
+
+  .status { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .status .repo { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 18px; }
+  .status .repo a { color: inherit; text-decoration: none; }
+  .status .sub { color: var(--ink-3); font-size: 13px; }
+  .meter { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); }
+  .meter .bar { width: 160px; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+  .meter .bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .4s ease; }
+  .meter .n { font-variant-numeric: tabular-nums; font-family: "IBM Plex Mono", monospace; }
+  .state { font-family: "IBM Plex Mono", monospace; font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); }
+  .state.completed { background: var(--adopt-soft); color: var(--adopt); }
+  .state.awaiting_budget, .state.paused_external { background: var(--cond-soft); color: var(--cond); }
+  .state.intake_failed { background: var(--reject-soft); color: var(--reject); }
+
+  .activity { display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin-bottom: 16px; border: 1px dashed var(--line); border-radius: 8px; color: var(--ink-2); }
+  .activity.hidden { display: none; }
+  .pulse { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); position: relative; flex: none; }
+  .pulse::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--accent); opacity: .6; animation: ring 1.4s ease-out infinite; }
+  .activity.checking .pulse { background: var(--cond); } .activity.checking .pulse::after { border-color: var(--cond); }
+  @keyframes ring { from { transform: scale(.6); opacity: .7; } to { transform: scale(1.6); opacity: 0; } }
+
+  .banner { border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; border: 1px solid var(--line); background: var(--cond-soft); }
+  .banner h3 { margin: 0 0 6px; font-family: "Bricolage Grotesque", sans-serif; font-size: 17px; }
+  .banner ul { margin: 6px 0; padding-left: 18px; }
+  .banner .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .banner input[type=number] { width: 80px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
+  .banner.bad { background: var(--reject-soft); }
+
+  h2.section { font-family: "Bricolage Grotesque", sans-serif; font-size: 15px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--ink-3); margin: 22px 0 10px; }
+
+  .timeline { position: relative; padding-left: 26px; }
+  .timeline::before { content: ""; position: absolute; left: 9px; top: 6px; bottom: 6px; width: 2px; background: var(--line); }
+  .step { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  .step.enter { animation: slide .35s ease-out; }
+  @keyframes slide { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .step::before { content: ""; position: absolute; left: -23px; top: 16px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); }
+  .step.pending::before { border-color: var(--cond); animation: blink 1s ease-in-out infinite; }
+  .step.error::before { border-color: var(--bad); }
+  .step.verdict::before { background: var(--accent); }
+  @keyframes blink { 50% { opacity: .3; } }
+  .step .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .step .num { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink-3); }
+  .step .tool { font-family: "IBM Plex Mono", monospace; font-weight: 500; color: var(--accent-ink); }
+  .step .call { font-size: 12px; color: var(--ink-3); margin-left: auto; font-variant-numeric: tabular-nums; }
+  .step .why { margin: 8px 0 4px; color: var(--ink); }
+  .step .q { color: var(--ink-2); font-size: 14px; }
+  .step .q::before { content: "Q "; font-family: "IBM Plex Mono", monospace; color: var(--ink-3); }
+  .step .result { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 14px; }
+  .step .result.pending { color: var(--ink-3); font-style: italic; }
+  .tag { display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--cond-soft); color: var(--cond); margin-left: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .chip { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; padding: 2px 8px; border-radius: 4px; background: var(--accent-soft); color: var(--accent-ink); cursor: pointer; border: 1px solid transparent; }
+  .chip.verified { } .chip.not_found { background: var(--cond-soft); color: var(--cond); } .chip.rate_limited, .chip.unavailable { background: var(--reject-soft); color: var(--reject); }
+  .chip.hot { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .chip.new { animation: flash 1.2s ease-out; }
+  @keyframes flash { 0% { background: var(--accent); color: #fff; } 100% { } }
+  .chips .lbl { font-size: 11px; color: var(--ink-3); align-self: center; }
+
+  .verdict { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; margin: 12px 0 16px; box-shadow: var(--shadow); animation: reveal .5s ease-out; }
+  @keyframes reveal { from { opacity: 0; transform: scale(.98); } to { opacity: 1; transform: none; } }
+  .verdict .decision { display: inline-block; font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 22px; padding: 4px 14px; border-radius: 6px; }
+  .verdict .decision.adopt { background: var(--adopt-soft); color: var(--adopt); }
+  .verdict .decision.adopt_with_conditions { background: var(--cond-soft); color: var(--cond); }
+  .verdict .decision.reject { background: var(--reject-soft); color: var(--reject); }
+  .verdict .conf { color: var(--ink-3); font-size: 13px; margin-left: 10px; }
+  .verdict p.sum { margin: 12px 0; }
+  .verdict h4 { margin: 12px 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); }
+  .verdict ul { margin: 0; padding-left: 18px; font-size: 14px; }
+  .verdict li { margin-bottom: 4px; }
+  .verdict .ctype { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--ink-3); }
+
+  aside .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; box-shadow: var(--shadow); position: sticky; top: 84px; max-height: calc(100vh - 100px); overflow: auto; }
+  .ev { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .ev:first-of-type { border-top: 0; }
+  .ev.hot { background: var(--accent-soft); margin: 0 -8px; padding: 8px; border-radius: 6px; }
+  .ev .id { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--accent-ink); }
+  .ev .st { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; }
+  .ev .st.verified { color: var(--ok); } .ev .st.not_found { color: var(--warn); } .ev .st.rate_limited, .ev .st.unavailable { color: var(--bad); }
+  .ev .sum { grid-column: 1 / -1; color: var(--ink-2); }
+  .ev .sum a { color: inherit; }
+  .empty { color: var(--ink-3); font-size: 14px; padding: 20px 0; }
+
+  .chat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; box-shadow: var(--shadow); }
+  .msgs { display: flex; flex-direction: column; gap: 10px; max-height: 360px; overflow: auto; margin-bottom: 10px; }
+  .msg { padding: 10px 12px; border-radius: 8px; max-width: 85%; font-size: 14px; white-space: pre-wrap; }
+  .msg.user { align-self: flex-end; background: var(--accent-soft); }
+  .msg.assistant { align-self: flex-start; background: var(--surface-2); }
+  .msg .mode { display: block; font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--ink-3); margin-bottom: 4px; }
+  .chat form { display: flex; gap: 8px; }
+  .chat input { flex: 1; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+  .hints { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .hints button { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 6px; font-size: 14px; display: none; }
+
+  @media (prefers-reduced-motion: reduce) { .step.enter, .verdict, .chip.new { animation: none; } .pulse::after, .step.pending::before { animation: none; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">Repo Detective<small>evidence-grounded adoption verdicts</small></div>
+    <form class="run" id="runForm">
+      <input id="repoInput" placeholder="https://github.com/owner/repo  or  owner/repo" autocomplete="off" spellcheck="false" required>
+      <button class="btn" id="runBtn" type="submit">Investigate</button>
+    </form>
+    <select id="picker" title="Open a saved investigation"><option value="">Saved investigations…</option></select>
+  </div>
+</header>
+
+<div class="shell">
+  <main>
+    <div id="statusCard" class="status" hidden>
+      <div><div class="repo" id="repoName"></div><div class="sub" id="repoSub"></div></div>
+      <div class="meter"><span>LLM calls</span><div class="bar"><i id="meterFill"></i></div><span class="n" id="meterText">0 / 30</span></div>
+      <span class="state" id="stateChip"></span>
+    </div>
+    <div id="activity" class="activity hidden"><span class="pulse"></span><span id="activityText"></span></div>
+    <div id="banner"></div>
+    <div id="verdictBox"></div>
+    <h2 class="section" id="logTitle" hidden>Investigation log</h2>
+    <div class="timeline" id="timeline"></div>
+    <div class="empty" id="emptyMain">Enter a public GitHub repository above. Intake runs first (plain code), then the agent chooses each step and every step appears here as it happens.</div>
+    <h2 class="section" id="chatTitle" hidden>Ask about it, or send the agent back to work</h2>
+    <div class="chat" id="chatBox" hidden>
+      <div class="msgs" id="msgs"></div>
+      <form id="chatForm"><input id="chatInput" placeholder="why did you flag the maintainer situation?  ·  now check the biggest fork" autocomplete="off"><button class="btn" id="chatBtn" type="submit">Send</button></form>
+      <div class="hints">
+        <button type="button" data-q="Why did you reach this verdict?">Why this verdict?</button>
+        <button type="button" data-q="What could not be verified?">What was not verified?</button>
+        <button type="button" data-q="Now check the biggest fork and whether the community moved there.">Check the biggest fork</button>
+        <button type="button" data-q="Now check how the maintainers respond to security issues.">Check security response</button>
+      </div>
+    </div>
+  </main>
+  <aside>
+    <div class="panel">
+      <h2 class="section" style="margin-top:0">Evidence ledger <span id="evCount" class="mono" style="font-weight:400;color:var(--ink-3)"></span></h2>
+      <div id="ledger"><div class="empty">Evidence records appear as the agent collects them. Hover a step to see what it cited.</div></div>
+      <div style="margin-top:12px"><a id="reportLink" href="#" target="_blank" hidden>Open Markdown report ↗</a></div>
+    </div>
+  </aside>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  let current = null, source = null, rendered = { steps: new Map(), evidence: new Map(), chat: 0, verdictKey: null };
+
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 3500); }
+  async function api(path, opts) {
+    const r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || r.statusText);
+    return body;
+  }
+
+  async function loadPicker() {
+    const { investigations } = await api("/api/investigations");
+    const p = $("picker");
+    p.innerHTML = '<option value="">Saved investigations…</option>' + investigations.map((i) =>
+      `<option value="${i.id}">${esc(i.canonical_full_name || i.owner + "/" + i.repo)} · ${i.status} · ${i.investigation_calls_used}/${i.initial_budget + i.approved_extra_budget} · r${i.revision}</option>`).join("");
+    if (current) p.value = current;
+  }
+
+  function open(id) {
+    if (source) source.close();
+    current = id; location.hash = id;
+    rendered = { steps: new Map(), evidence: new Map(), chat: 0, verdictKey: null };
+    $("timeline").innerHTML = ""; $("ledger").innerHTML = ""; $("msgs").innerHTML = ""; $("verdictBox").innerHTML = ""; $("banner").innerHTML = "";
+    source = new EventSource(`/api/investigations/${id}/events`);
+    source.addEventListener("state", (e) => render(JSON.parse(e.data)));
+    source.onerror = () => { /* browser reconnects */ };
+    $("picker").value = id;
+  }
+
+  $("runForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const repository = $("repoInput").value.trim();
+    if (!repository) return;
+    $("runBtn").disabled = true;
+    try { const { id } = await api("/api/investigations", { method: "POST", body: JSON.stringify({ repository }) }); open(id); loadPicker(); }
+    catch (err) { toast(err.message); }
+    finally { $("runBtn").disabled = false; }
+  });
+  $("picker").addEventListener("change", (e) => { if (e.target.value) open(e.target.value); });
+  $("chatForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const message = $("chatInput").value.trim();
+    if (!message || !current) return;
+    $("chatBtn").disabled = true;
+    try { await api(`/api/investigations/${current}/chat`, { method: "POST", body: JSON.stringify({ message }) }); $("chatInput").value = ""; }
+    catch (err) { toast(err.message); }
+    finally { $("chatBtn").disabled = false; }
+  });
+  document.querySelectorAll(".hints button").forEach((b) => b.addEventListener("click", () => { $("chatInput").value = b.dataset.q; $("chatInput").focus(); }));
+
+  function chips(ids, evidenceById, label) {
+    if (!ids || !ids.length) return "";
+    return `<div class="chips">${label ? `<span class="lbl">${label}</span>` : ""}${ids.map((id) => {
+      const ev = evidenceById.get(id); return `<span class="chip ${ev ? ev.status : ""}" data-ev="${esc(id)}" title="${esc(ev ? ev.summary : id)}">${esc(id)}</span>`; }).join("")}</div>`;
+  }
+
+  function render(s) {
+    const inv = s.investigation, evidenceById = new Map(s.evidence.map((e) => [e.id, e]));
+    $("emptyMain").hidden = true; $("statusCard").hidden = false; $("logTitle").hidden = false; $("chatTitle").hidden = false; $("chatBox").hidden = false;
+    const name = inv.canonical_full_name || `${inv.owner}/${inv.repo}`;
+    $("repoName").innerHTML = inv.html_url ? `<a href="${esc(inv.html_url)}" target="_blank">${esc(name)}</a>` : esc(name);
+    const it = inv.intake || {};
+    $("repoSub").textContent = it.stars != null ? `${it.stars.toLocaleString()} stars · ${it.forks?.toLocaleString?.() ?? "?"} forks · last push ${(it.pushed_at || "").slice(0, 10)} · latest release ${it.latest_release?.tag_name || "none found"}${it.archived ? " · ARCHIVED" : ""}` : (inv.last_error || "");
+    const total = inv.initial_budget + inv.approved_extra_budget;
+    $("meterFill").style.width = `${Math.min(100, 100 * inv.investigation_calls_used / total)}%`;
+    $("meterText").textContent = `${inv.investigation_calls_used} / ${total}` + (inv.revision > 1 ? `  · r${inv.revision}` : "");
+    const chip = $("stateChip"); chip.textContent = inv.status.replace(/_/g, " "); chip.className = `state ${inv.status}`;
+    const pickerKey = `${inv.id}:${inv.status}:${inv.investigation_calls_used}:${inv.revision}`;
+    if (rendered.pickerKey !== pickerKey) { rendered.pickerKey = pickerKey; loadPicker().catch(() => {}); }
+
+    const act = $("activity");
+    if (s.busy && s.activity.kind !== "idle") { act.className = `activity ${s.activity.kind}`; $("activityText").textContent = s.activity.label + "…"; }
+    else act.className = "activity hidden";
+
+    // banners
+    let banner = "";
+    const pend = inv.pending_budget_request;
+    if (inv.status === "awaiting_budget" && pend) {
+      banner = `<div class="banner"><h3>The agent paused and asks for ${esc(pend.requested_calls)} more calls</h3><div>${esc(pend.summary_so_far)}</div>
+        <div><strong>Why it may matter:</strong> ${esc(pend.expected_verdict_impact)}</div>
+        ${pend.unresolved_questions?.length ? `<div><strong>Unresolved:</strong><ul>${pend.unresolved_questions.map((q) => `<li>${esc(q)}</li>`).join("")}</ul></div>` : ""}
+        ${pend.proposed_next_checks?.length ? `<div><strong>Proposed checks:</strong><ul>${pend.proposed_next_checks.map((q) => `<li>${esc(q)}</li>`).join("")}</ul></div>` : ""}
+        <div class="row"><input type="number" id="approveN" min="1" max="100" value="${esc(pend.requested_calls || 5)}"><button class="btn small" id="approveBtn">Approve calls</button><button class="btn small ghost" id="finalizeBtn">Finalize with provisional verdict</button></div></div>`;
+    } else if (inv.status === "paused_external") {
+      banner = `<div class="banner bad"><h3>Paused: the LLM provider failed</h3><div class="mono" style="font-size:12px">${esc(inv.last_error || "")}</div><div class="row"><button class="btn small" id="resumeBtn">Resume with remaining budget (${inv.remaining_budget})</button></div></div>`;
+    } else if (inv.status === "intake_failed") {
+      banner = `<div class="banner bad"><h3>Intake could not verify this repository</h3><div>${esc(inv.last_error || "")}</div></div>`;
+    }
+    if ($("banner").dataset.key !== banner) { $("banner").innerHTML = banner; $("banner").dataset.key = banner;
+      $("approveBtn")?.addEventListener("click", () => api(`/api/investigations/${current}/approve`, { method: "POST", body: JSON.stringify({ calls: Number($("approveN").value) }) }).catch((e) => toast(e.message)));
+      $("finalizeBtn")?.addEventListener("click", () => api(`/api/investigations/${current}/finalize`, { method: "POST", body: "{}" }).catch((e) => toast(e.message)));
+      $("resumeBtn")?.addEventListener("click", () => api(`/api/investigations/${current}/resume`, { method: "POST", body: "{}" }).catch((e) => toast(e.message)));
+    }
+
+    // verdict
+    const v = inv.verdict;
+    const vkey = v ? JSON.stringify([v.decision, v.executive_summary, inv.status, inv.revision]) : null;
+    if (vkey !== rendered.verdictKey) {
+      rendered.verdictKey = vkey;
+      $("verdictBox").innerHTML = !v ? "" : `<div class="verdict"><span class="decision ${esc(v.decision)}">${esc(v.decision.replace(/_/g, " "))}</span><span class="conf">confidence ${esc(v.confidence)}${inv.status === "awaiting_budget" ? " · provisional" : ""}</span>
+        <p class="sum">${esc(v.executive_summary)}</p>
+        ${v.positive_signals?.length ? `<h4>Positive signals</h4><ul>${v.positive_signals.map((c) => `<li>${esc(c.statement)} <span class="ctype">${esc(c.claim_type)}</span>${chips(c.evidence_ids, evidenceById)}</li>`).join("")}</ul>` : ""}
+        ${v.risk_factors?.length ? `<h4>Risk factors</h4><ul>${v.risk_factors.map((c) => `<li>${esc(c.statement)} <span class="ctype">${esc(c.claim_type)}</span>${chips(c.evidence_ids, evidenceById)}</li>`).join("")}</ul>` : ""}
+        ${v.adoption_conditions?.length ? `<h4>Adoption conditions</h4><ul>${v.adoption_conditions.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}
+        ${v.unverified_items?.length ? `<h4>Not verified</h4><ul>${v.unverified_items.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}</div>`;
+    }
+
+    // timeline — "follows previous finding" means this step cites evidence the previous step produced
+    const tl = $("timeline");
+    let prevEvidence = new Set();
+    s.steps.forEach((st) => {
+      const pending = !st.completed_at, isErr = st.action_type === "invalid_model_action" || st.result_status === "error";
+      const lead = st.action_type === "github_tool" && st.based_on_evidence_ids?.some((id) => prevEvidence.has(id));
+      const html = `<div class="head"><span class="num">#${st.sequence}${st.revision > 1 ? ` r${st.revision}` : ""}</span><span class="tool">${esc(st.tool_name || st.action_type)}</span>${lead ? '<span class="tag">follows previous finding</span>' : ""}<span class="call">call ${esc(st.llm_call_number ?? "–")}</span></div>
+        <div class="why">${esc(st.rationale)}</div>${st.question_to_answer ? `<div class="q">${esc(st.question_to_answer)}</div>` : ""}
+        ${chips(st.based_on_evidence_ids, evidenceById, "based on")}
+        <div class="result ${pending ? "pending" : ""}">${pending ? "checking GitHub…" : esc(st.observation)}</div>
+        ${chips(st.evidence_ids, evidenceById, "evidence")}`;
+      const key = `${st.sequence}`;
+      let el = rendered.steps.get(key);
+      const cls = `step ${pending ? "pending" : ""} ${isErr ? "error" : ""} ${st.action_type === "submit_verdict" ? "verdict" : ""}`;
+      if (!el) { el = document.createElement("div"); el.className = cls + " enter"; el.innerHTML = html; el.dataset.html = html; tl.appendChild(el); rendered.steps.set(key, el);
+        el.addEventListener("mouseenter", () => highlight([...(st.based_on_evidence_ids || []), ...(st.evidence_ids || [])], true));
+        el.addEventListener("mouseleave", () => highlight([], false));
+        if (!pending) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      } else if (el.dataset.html !== html) { el.className = cls; el.innerHTML = html; el.dataset.html = html; }
+      prevEvidence = new Set(st.action_type === "github_tool" ? st.evidence_ids || [] : []);
+    });
+
+    // ledger
+    const led = $("ledger");
+    if (s.evidence.length && led.querySelector(".empty")) led.innerHTML = "";
+    s.evidence.forEach((e) => {
+      if (rendered.evidence.has(e.id)) return;
+      const el = document.createElement("div"); el.className = "ev"; el.dataset.ev = e.id;
+      el.innerHTML = `<span class="id">${esc(e.id)}</span><span class="st ${esc(e.status)}">${esc(e.status)} · ${esc(e.tool)}</span><span class="sum">${e.source_url ? `<a href="${esc(e.source_url)}" target="_blank">${esc(e.summary)}</a>` : esc(e.summary)}</span>`;
+      led.appendChild(el); rendered.evidence.set(e.id, el);
+      if (rendered.steps.size) { el.classList.add("hot"); setTimeout(() => el.classList.remove("hot"), 1500); }
+    });
+    $("evCount").textContent = s.evidence.length ? `(${s.evidence.length})` : "";
+    document.querySelectorAll(".chip").forEach((c) => { c.onclick = () => { const ev = evidenceById.get(c.dataset.ev); if (ev?.source_url) window.open(ev.source_url, "_blank"); }; });
+
+    // chat
+    if (s.chat.length !== rendered.chat) {
+      $("msgs").innerHTML = s.chat.map((m) => `<div class="msg ${esc(m.role)}"><span class="mode">${esc(m.mode)}</span>${esc(m.content)}${m.evidence_ids?.length ? chips(m.evidence_ids, evidenceById) : ""}</div>`).join("");
+      $("msgs").scrollTop = $("msgs").scrollHeight; rendered.chat = s.chat.length;
+    }
+    $("chatBtn").disabled = s.busy; $("chatInput").placeholder = s.busy ? "the agent is working…" : "why did you flag the maintainer situation?  ·  now check the biggest fork";
+    const rl = $("reportLink"); rl.hidden = !s.report_available; rl.href = `/api/investigations/${current}/report`;
+  }
+
+  function highlight(ids, on) {
+    const set = new Set(ids);
+    document.querySelectorAll(".ev").forEach((el) => el.classList.toggle("hot", on && set.has(el.dataset.ev)));
+    document.querySelectorAll(".chip").forEach((el) => el.classList.toggle("hot", on && set.has(el.dataset.ev)));
+  }
+
+  loadPicker().then(() => { const id = location.hash.slice(1); if (id) open(id); }).catch(() => {});
+})();
+</script>
+</body>
+</html>
