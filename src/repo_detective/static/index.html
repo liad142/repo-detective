@@ -128,6 +128,10 @@
   .ev .sum { grid-column: 1 / -1; color: var(--ink-2); }
   .ev .sum a { color: inherit; }
   .empty { color: var(--ink-3); font-size: 14px; padding: 20px 0; }
+  .evdetails { grid-column: 1 / -1; font-size: 11.5px; }
+  .evdetails summary { cursor: pointer; color: var(--ink-3); }
+  .evdetail { white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: auto; margin: 6px 0 0; padding: 8px; border-radius: 4px; background: var(--surface-2); color: var(--ink-2); font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; }
+  .status .sub.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px; margin-top: 4px; }
 
   .chat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; box-shadow: var(--shadow); }
   .msgs { display: flex; flex-direction: column; gap: 10px; max-height: 360px; overflow: auto; margin-bottom: 10px; }
@@ -160,7 +164,7 @@
   <main>
     <div id="statusCard" class="status" hidden>
       <div><div class="repo" id="repoName"></div><div class="sub" id="repoSub"></div></div>
-      <div class="meter"><span>LLM calls</span><div class="bar"><i id="meterFill"></i></div><span class="n" id="meterText">0 / 30</span></div>
+      <div><div class="meter"><span>LLM calls</span><div class="bar"><i id="meterFill"></i></div><span class="n" id="meterText">0 / 30 · 30 remaining</span></div><div class="sub mono" id="rateLimit"></div></div>
       <span class="state" id="stateChip"></span>
     </div>
     <div id="activity" class="activity hidden"><span class="pulse"></span><span id="activityText"></span></div>
@@ -260,7 +264,8 @@
     $("repoSub").textContent = it.stars != null ? `${it.stars.toLocaleString()} stars · ${it.forks?.toLocaleString?.() ?? "?"} forks · last push ${(it.pushed_at || "").slice(0, 10)} · latest release ${it.latest_release?.tag_name || "none found"}${it.archived ? " · ARCHIVED" : ""}` : (inv.last_error || "");
     const total = inv.initial_budget + inv.approved_extra_budget;
     $("meterFill").style.width = `${Math.min(100, 100 * inv.investigation_calls_used / total)}%`;
-    $("meterText").textContent = `${inv.investigation_calls_used} / ${total}` + (inv.revision > 1 ? `  · r${inv.revision}` : "");
+    $("meterText").textContent = `${inv.investigation_calls_used} / ${total} · ${inv.remaining_budget} remaining` + (inv.revision > 1 ? ` · r${inv.revision}` : "");
+    $("rateLimit").textContent = s.github_rate_limit_remaining == null ? "" : `GitHub rate limit remaining: ${s.github_rate_limit_remaining}`;
     const chip = $("stateChip"); chip.textContent = inv.status.replace(/_/g, " "); chip.className = `state ${inv.status}`;
     const pickerKey = `${inv.id}:${inv.status}:${inv.investigation_calls_used}:${inv.revision}`;
     if (rendered.pickerKey !== pickerKey) { rendered.pickerKey = pickerKey; loadPicker().catch(() => {}); }
@@ -329,7 +334,8 @@
     s.evidence.forEach((e) => {
       if (rendered.evidence.has(e.id)) return;
       const el = document.createElement("div"); el.className = "ev"; el.dataset.ev = e.id;
-      el.innerHTML = `<span class="id">${esc(e.id)}</span><span class="st ${esc(e.status)}">${esc(e.status)} · ${esc(e.tool)}</span><span class="sum">${e.source_url ? `<a href="${esc(e.source_url)}" target="_blank">${esc(e.summary)}</a>` : esc(e.summary)}</span>`;
+      el.innerHTML = `<span class="id">${esc(e.id)}</span><span class="st ${esc(e.status)}">${esc(e.status)} · ${esc(e.tool)}</span><span class="sum">${e.source_url ? `<a href="${esc(e.source_url)}" target="_blank" rel="noopener">${esc(e.summary)}</a>` : esc(e.summary)}</span>
+        <details class="evdetails"><summary>normalized details${e.details && e.details.endsWith("…") ? " (truncated)" : ""}</summary><pre class="evdetail">${esc(e.details || "")}</pre></details>`;
       led.appendChild(el); rendered.evidence.set(e.id, el);
       if (rendered.steps.size) { el.classList.add("hot"); setTimeout(() => el.classList.remove("hot"), 1500); }
     });

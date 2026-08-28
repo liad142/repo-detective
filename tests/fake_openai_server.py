@@ -7,12 +7,15 @@ Scenario switches via env vars:
   FAKE_PARALLEL=1         -> first turn returns two tool calls at once
   FAKE_PROSE=1            -> second turn returns prose without any tool call
   FAKE_REQUEST_BUDGET=1   -> third turn asks the human for 3 more calls
+  FAKE_HANG_AT=N          -> the (N+1)th investigation turn never answers (simulate a
+                             run you then kill, to exercise reconcile + resume)
 """
 from __future__ import annotations
 
 import json
 import os
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PLAN = ["list_commits", "list_repository_advisories", "list_issues", "list_forks"]
@@ -92,6 +95,10 @@ class Handler(BaseHTTPRequestHandler):
             self._reply([tool_call("get_repository", {**common, "repository": top, "rationale": "Inspect the biggest fork"})])
             return
 
+        hang_at = os.getenv("FAKE_HANG_AT")
+        if hang_at is not None and step == int(hang_at):
+            sys.stderr.write(f"fake-llm: hanging at step {step} as requested\n")
+            time.sleep(3600)
         if os.getenv("FAKE_PROSE") == "1" and step == 1:
             self._reply(None, "I think we should look at the commits next.")
             return

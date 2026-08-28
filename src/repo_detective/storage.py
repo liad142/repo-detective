@@ -725,7 +725,44 @@ class InvestigationStore:
             )
         if investigation["remaining_budget"] <= 0:
             raise BudgetExhausted("No investigation budget remains; approve more calls instead")
+        self.reconcile_interrupted(investigation_id)
         self.set_status(investigation_id, InvestigationStatus.INVESTIGATING)
+
+    INTERRUPTED_CALL_NOTE = (
+        "Interrupted: the process stopped before the model response was recorded. "
+        "The reserved call already counted toward the budget and is not refunded."
+    )
+    INTERRUPTED_STEP_NOTE = (
+        "Interrupted: execution stopped before the result of this step was persisted. "
+        "Any evidence recorded before the interruption is kept; nothing else was verified."
+    )
+
+    def reconcile_interrupted(self, investigation_id: str) -> dict[str, int]:
+        """Close out artifacts left by an abrupt stop, in one transaction.
+
+        Stale `reserved` LLM calls become `interrupted` and incomplete steps get an
+        explicit error result, so the log and the UI never show a phantom
+        "checking…" forever. Budget counters are untouched: a reserved call was
+        an outbound attempt and stays consumed. Only called on an explicit resume.
+        """
+        now = utc_now()
+        with self.connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            calls = conn.execute(
+                """
+                UPDATE llm_calls SET status = 'interrupted', completed_at = ?, error = ?
+                WHERE investigation_id = ? AND status = 'reserved'
+                """,
+                (now, self.INTERRUPTED_CALL_NOTE, investigation_id),
+            ).rowcount
+            steps = conn.execute(
+                """
+                UPDATE investigation_steps SET result_status = 'error', observation = ?, completed_at = ?
+                WHERE investigation_id = ? AND completed_at IS NULL
+                """,
+                (self.INTERRUPTED_STEP_NOTE, now, investigation_id),
+            ).rowcount
+        return {"interrupted_calls": calls, "interrupted_steps": steps}
 
     def get_cache(self, cache_key: str) -> dict[str, Any] | None:
         with self.connection() as conn:

@@ -19,6 +19,7 @@ Operating policy:
    - adopt: healthy, maintained, no unresolved security exposure in the version a team would install today. Routine hygiene every dependency needs (lockfiles, pinning, scanning, sandboxing) is not a condition; list such notes under unverified_items or omit them.
    - adopt_with_conditions: adoption is reasonable only if the team does something specific to this project that it would not do by default (e.g. avoid a version, wait for a fix, replace a component).
    - reject: the project is deprecated, abandoned, or its maintainers or supply chain cannot be trusted.
+8. A declared dependency range in a manifest is not an installed or resolved version. Do not claim actual vulnerability exposure unless a resolved version was observed (for example in a lockfile). If only a range is known, say that the installed version was not verified. Routine dependency updates, lockfile maintenance, and scanning are not automatically project-specific adoption conditions.
 8. Every verdict claim must cite evidence IDs from this investigation.
 9. If remaining budget is insufficient for a concrete, decision-relevant lead, request additional calls and provide a provisional verdict.
 10. Select exactly one function tool per turn. Never emit prose instead of a function call.

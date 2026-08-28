@@ -51,7 +51,9 @@ docker compose up web        # then open http://localhost:8080
 
 Enter a repository, and the page shows intake, then each agent step as it is written to the log: the rationale and question, the evidence it was based on, a "checking" state while the GitHub call runs, the result, and the new evidence records lighting up in the ledger. Verdicts, budget requests (approve / finalize), provider pauses (resume), the grounded chat, and re-tasking all work from the page. Progress is streamed with Server-Sent Events derived from SQLite, so the page shows exactly what the log stores.
 
-The UI has no authentication and is bound to `127.0.0.1` by compose. It is a local viewer, not a hosted service.
+The UI has no authentication and is bound to `127.0.0.1` by compose. It is a local viewer only; hosting it (which would need authentication and a spend cap) was intentionally cut. The status bar shows calls used, calls remaining, and the last GitHub rate-limit value seen; each ledger entry can be expanded to its normalized details.
+
+If a run is interrupted (container killed, Ctrl+C), `resume` — from the CLI or the page — first reconciles what was left behind: the reserved LLM call is marked interrupted and still counts, and any step without a result gets an explicit error observation. Nothing is refunded or double-counted.
 
 ## Assignment test cases
 
@@ -61,28 +63,22 @@ docker compose run --rm app investigate request/request
 docker compose run --rm app investigate RIAEvangelist/node-ipc
 ```
 
-Observed on 2026-08-27 with `openai/gpt-5.6-sol` through OpenRouter (`OPENAI_BASE_URL=https://openrouter.ai/api/v1`), no prompt tuning:
+Results with the final code, run on 2026-08-28 with `openai/gpt-5.6-sol` through OpenRouter (`OPENAI_BASE_URL=https://openrouter.ai/api/v1`), no tuning per repository. The full reports are in [`examples/`](examples/). Verdicts depend on the model and on the repositories' state at run time.
 
-| Repository | Verdict | Calls | Decisive lead the agent followed |
+| Repository | Verdict | Calls | Decisive evidence |
 |---|---|---:|---|
-| expressjs/express | adopt_with_conditions (high) | 10 | PR title mentioning a body-parser CVE → read `package.json@v5.2.1` → advisory lookup → `compare_refs` → confirmed fix only on master |
-| request/request | reject (high) | 2 | README deprecation notice; advisories deliberately left as unverified |
-| RIAEvangelist/node-ipc | reject (high) | 7 | Reviewed advisories documenting maintainer-introduced malicious code (10.1.1–10.1.2) |
+| expressjs/express | adopt (high) | 11 | Active repo; OSV and malware queries clean for express@5.2.1; a body-parser advisory affects the range floor, but the declared `^2.2.1` range permits the fixed 2.3.0, and the installed version was explicitly listed as not verified |
+| request/request | reject (high) | 2 | README states the project has been fully deprecated since 2020-02-11; no release, last push 2024-08-14 |
+| RIAEvangelist/node-ipc | reject (high) | 7 | Reviewed advisories documenting maintainer-introduced malicious code (10.1.1–10.1.2) plus a malware advisory for 9.1.6 |
 
-Chat re-task on request/request (`now check the biggest fork and whether the community moved there`) resumed with 13 calls, identified `postmanlabs/postman-request`, read the full 106-comment alternatives issue, and kept `reject` with the migration question answered.
+Mechanical paths observed live, independent of the model's verdict: a 404 repository ends as `intake_failed` with a report and exit code 2; `facebook/jest` resolves to the canonical `jestjs/jest`; `--budget 2` pauses at the control-only last call with a provisional verdict and a structured request, and `approve` resumes the same investigation. The three runs above cost about US$0.45 in total.
 
-Grace and budget paths, also observed live with the same model:
+Reproduce with your own key:
 
-| Case | Result |
-|---|---|
-| `atom/atom` (archived) | reject in 2 calls; README sunset notice cited, successor left as unverified |
-| `liad142/repo-detective-empty-fixture` (empty) | reject in 2 calls; GitHub's "This repository is empty" recorded as evidence, package checks marked not applicable |
-| `chalk/chalk` (30 calls) | adopt_with_conditions in 15 calls; found the 5.6.1 npm compromise via issue #656 and a malware advisory |
-| `expressjs/express --budget 2` | paused at call 2 with a provisional `adopt` (low) and a request for 2 more calls; `approve --calls 6` resumed and finished `adopt_with_conditions` (high) |
-| `no-such-owner-xyz123/nope` (404) | intake_failed, report written, exit code 2 |
-| `facebook/jest` (renamed) | canonical `jestjs/jest` stored and used |
-
-Express consistently lands on `adopt_with_conditions`: v5.2.1 declares `body-parser ^2.2.1`, whose floor has a reviewed advisory (also confirmed through OSV), and the raised floor is merged but unreleased. The condition is specific and actionable, so it is kept rather than tuned away. Total cost for all runs was about US$2.
+```bash
+docker compose run --rm app investigate expressjs/express
+docker compose run --rm app report latest --stdout
+```
 
 List saved investigations:
 

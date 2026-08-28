@@ -33,7 +33,9 @@
 | OpenAI-compatible base URL and model | `OPENAI_BASE_URL`, `OPENAI_MODEL`; direct Chat Completions HTTP; `tool_choice` probe falls back to `auto`; separate LLM timeout | `test_llm.py` |
 | No hardcoded model/vendor logic | Model required from environment | Config tests/manual review |
 | Docker, one investigate command, one chat command | Dockerfile and Compose commands in README | Smoke test |
-| Chat: CLI or web | CLI chat plus a local web UI (`docker compose up web`) with live log, chat, approve/finalize/resume | `test_web.py`; browser run |
+| Chat: CLI or web | CLI chat plus a local web UI (`docker compose up web`) with live log, chat, approve/finalize/resume; local only, hosting cut | `test_web.py`; browser run |
+| Dependency ranges are not resolved versions | Prompt rule: no exposure claim without an observed resolved version; hygiene is not a condition | Prompt review |
+| Interrupted runs never leave phantom state | `reconcile_interrupted` on explicit resume: reserved call → interrupted (still counted), incomplete step → error | `test_reconcile.py`; fake-provider kill + resume |
 | Public clone/run in five minutes | Dependency-free image and documented setup | Docker smoke test |
 | One-page `DECISIONS.md` | Included | Manual review |
 | No secrets committed | `.env` ignored; `.env.example` placeholders | Repository scan |

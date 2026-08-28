@@ -17,7 +17,7 @@ from .models import BudgetExhausted, InvestigationStatus, json_dumps
 from .storage import InvestigationStore
 
 STATIC_DIR = Path(__file__).parent / "static"
-SNAPSHOT_DETAIL_CHARS = 1_500
+SNAPSHOT_DETAIL_CHARS = 4_000
 
 
 class WebApp:
@@ -92,7 +92,9 @@ class WebApp:
         self.runtime.reports.render(investigation_id)
 
     def resume(self, investigation_id: str) -> None:
-        self.store.resume_after_external_pause(investigation_id)
+        if investigation_id in self._busy:
+            raise ValueError("The agent is still working on this investigation")
+        self.store.resume_after_external_pause(investigation_id)  # reconciles interrupted calls/steps first
         self._spawn(investigation_id, lambda: (self.runtime.agent.run(investigation_id), self.runtime.reports.render(investigation_id)))
 
     # ---- read model --------------------------------------------------------
@@ -102,8 +104,11 @@ class WebApp:
         steps = self.store.list_steps(investigation_id)
         calls = self.store.list_llm_calls(investigation_id)
         evidence = []
+        rate_limit_remaining = None
         for item in self.store.list_evidence(investigation_id):
             details = json_dumps(item.get("normalized"))
+            if item.get("rate_limit_remaining") is not None:
+                rate_limit_remaining = item["rate_limit_remaining"]  # list is ordered by retrieved_at
             evidence.append({
                 "id": item["id"], "tool": item["tool_name"], "status": item["verification_status"],
                 "summary": item["summary"], "source_url": item.get("html_url") or item.get("api_url"),
@@ -125,6 +130,7 @@ class WebApp:
                 )
             },
             "activity": self._activity(investigation, steps, calls),
+            "github_rate_limit_remaining": rate_limit_remaining,
             "steps": [
                 {k: s.get(k) for k in (
                     "sequence", "revision", "llm_call_number", "action_type", "rationale", "question_to_answer",

@@ -12,6 +12,9 @@ services:
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-120}
       HTTP_TIMEOUT_SECONDS: ${HTTP_TIMEOUT_SECONDS:-30}
       GITHUB_CACHE_TTL_SECONDS: ${GITHUB_CACHE_TTL_SECONDS:-900}
+      OSV_API_URL: ${OSV_API_URL:-https://api.osv.dev}
+      MAX_TOOL_ITEMS: ${MAX_TOOL_ITEMS:-50}
+      MAX_FILE_CHARS: ${MAX_FILE_CHARS:-24000}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -34,6 +37,9 @@ services:
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-120}
       HTTP_TIMEOUT_SECONDS: ${HTTP_TIMEOUT_SECONDS:-30}
       GITHUB_CACHE_TTL_SECONDS: ${GITHUB_CACHE_TTL_SECONDS:-900}
+      OSV_API_URL: ${OSV_API_URL:-https://api.osv.dev}
+      MAX_TOOL_ITEMS: ${MAX_TOOL_ITEMS:-50}
+      MAX_FILE_CHARS: ${MAX_FILE_CHARS:-24000}
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
