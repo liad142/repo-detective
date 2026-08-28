@@ -69,7 +69,20 @@ Observed on 2026-08-27 with `openai/gpt-5.6-sol` through OpenRouter (`OPENAI_BAS
 | request/request | reject (high) | 2 | README deprecation notice; advisories deliberately left as unverified |
 | RIAEvangelist/node-ipc | reject (high) | 7 | Reviewed advisories documenting maintainer-introduced malicious code (10.1.1–10.1.2) |
 
-Chat re-task on request/request (`now check the biggest fork and whether the community moved there`) resumed with 13 calls, identified `postmanlabs/postman-request`, read the full 106-comment alternatives issue, and kept `reject` with the migration question answered. Total cost for all runs was about US$1.
+Chat re-task on request/request (`now check the biggest fork and whether the community moved there`) resumed with 13 calls, identified `postmanlabs/postman-request`, read the full 106-comment alternatives issue, and kept `reject` with the migration question answered.
+
+Grace and budget paths, also observed live with the same model:
+
+| Case | Result |
+|---|---|
+| `atom/atom` (archived) | reject in 2 calls; README sunset notice cited, successor left as unverified |
+| `liad142/repo-detective-empty-fixture` (empty) | reject in 2 calls; GitHub's "This repository is empty" recorded as evidence, package checks marked not applicable |
+| `chalk/chalk` (30 calls) | adopt_with_conditions in 15 calls; found the 5.6.1 npm compromise via issue #656 and a malware advisory |
+| `expressjs/express --budget 2` | paused at call 2 with a provisional `adopt` (low) and a request for 2 more calls; `approve --calls 6` resumed and finished `adopt_with_conditions` (high) |
+| `no-such-owner-xyz123/nope` (404) | intake_failed, report written, exit code 2 |
+| `facebook/jest` (renamed) | canonical `jestjs/jest` stored and used |
+
+Express consistently lands on `adopt_with_conditions`: v5.2.1 declares `body-parser ^2.2.1`, whose floor has a reviewed advisory (also confirmed through OSV), and the raised floor is merged but unreleased. The condition is specific and actionable, so it is kept rather than tuned away. Total cost for all runs was about US$2.
 
 List saved investigations:
 
@@ -173,6 +186,7 @@ The agent can selectively use:
 - forks
 - repository security advisories
 - GitHub's global advisory database, including an explicit malware query
+- the OSV vulnerability database (`query_osv`), keyless, as an independent second source
 
 Every research action includes:
 
@@ -238,6 +252,7 @@ PYTHONPATH=src python -m repo_detective list
 | `HTTP_TIMEOUT_SECONDS` | No | GitHub request timeout (default 30) |
 | `LLM_TIMEOUT_SECONDS` | No | LLM request timeout (default 120) |
 | `GITHUB_CACHE_TTL_SECONDS` | No | Avoid duplicate GitHub calls; only 2xx and 404 responses are cached, never rate limits |
+| `OSV_API_URL` | No | OSV endpoint (default `https://api.osv.dev`), no key needed |
 
 ## Security choices
 

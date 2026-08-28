@@ -42,6 +42,7 @@ class Settings:
     max_file_chars: int
     llm_timeout_seconds: int = 120
     openai_tool_choice: str = "required"
+    osv_api_url: str = "https://api.osv.dev"
 
     @classmethod
     def from_env(cls, *, require_llm: bool = True) -> "Settings":
@@ -65,6 +66,10 @@ class Settings:
         github_api_url = os.getenv("GITHUB_API_URL", "https://api.github.com").rstrip("/")
         if not github_api_url.startswith("https://"):
             raise ConfigurationError("GITHUB_API_URL must use HTTPS")
+
+        osv_api_url = os.getenv("OSV_API_URL", "https://api.osv.dev").rstrip("/")
+        if not osv_api_url.startswith("https://"):
+            raise ConfigurationError("OSV_API_URL must use HTTPS")
 
         tool_choice = os.getenv("OPENAI_TOOL_CHOICE", "required").strip().lower()
         if tool_choice not in {"required", "auto"}:
@@ -90,5 +95,6 @@ class Settings:
             max_file_chars=_positive_int("MAX_FILE_CHARS", 24_000),
             llm_timeout_seconds=_positive_int("LLM_TIMEOUT_SECONDS", 120),
             openai_tool_choice=tool_choice,
+            osv_api_url=osv_api_url,
         )
 

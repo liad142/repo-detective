@@ -13,7 +13,10 @@ from .github import (
     safe_api_message,
 )
 from .models import ToolResult, ToolResultStatus, VerificationStatus
+from .osv import OSV_ECOSYSTEMS, OSVClient
 from .storage import InvestigationStore
+
+ADVISORY_ECOSYSTEMS = ["rubygems", "npm", "pip", "maven", "nuget", "composer", "go", "rust", "erlang", "actions", "pub", "other", "swift"]
 
 
 COMMON_PROPERTIES: dict[str, Any] = {
@@ -199,16 +202,24 @@ INVESTIGATION_TOOL_DEFINITIONS = [
         "search_global_advisories",
         "Search GitHub's global advisory database by ecosystem and package, including malware when requested.",
         {
-            "ecosystem": {
-                "type": "string",
-                "enum": ["rubygems", "npm", "pip", "maven", "nuget", "composer", "go", "rust", "erlang", "actions", "pub", "other", "swift"],
-            },
+            "ecosystem": {"type": "string", "enum": ADVISORY_ECOSYSTEMS},
             "package": {"type": "string"},
             "version": {"type": "string"},
             "advisory_type": {"type": "string", "enum": ["reviewed", "malware", "unreviewed"]},
             "per_page": {"type": "integer", "minimum": 1, "maximum": 30},
         },
         ["ecosystem", "package", "advisory_type"],
+    ),
+    _tool(
+        "query_osv",
+        "Query the OSV vulnerability database (osv.dev), an independent source from GitHub advisories, "
+        "for a package and optionally an exact version. Package identity must come from a manifest.",
+        {
+            "ecosystem": {"type": "string", "enum": [key for key in ADVISORY_ECOSYSTEMS if key != "other"]},
+            "package": {"type": "string"},
+            "version": {"type": "string", "description": "Exact version; omit to list all known vulnerabilities for the package"},
+        },
+        ["ecosystem", "package"],
     ),
 ]
 
@@ -218,7 +229,9 @@ class GitHubToolRegistry:
         self.client = client
         self.store = store
         self.settings = settings
+        self.osv = OSVClient(settings)
         self._handlers: dict[str, Callable[..., ToolResult]] = {
+            "query_osv": self.query_osv,
             "get_repository": self.get_repository,
             "read_repository_file": self.read_repository_file,
             "list_commits": self.list_commits,
@@ -843,6 +856,61 @@ class GitHubToolRegistry:
             return self._failed_result(response, evidence, "Global security advisories")
         limitations = [f"Only advisory type '{advisory_type}' was queried", "Package identity comes from the investigation and must be verified against a manifest", "Only the first cursor page is inspected"]
         return ToolResult(ToolResultStatus.SUCCESS, summary, normalized, [evidence], limitations, response.has_next_page, None)
+
+    def query_osv(self, investigation: dict[str, Any], step_id: str, args: dict[str, Any]) -> ToolResult:
+        ecosystem_key = str(args.get("ecosystem", "")).strip().lower()
+        package = str(args.get("package", "")).strip()
+        version = str(args.get("version") or "").strip() or None
+        if ecosystem_key not in OSV_ECOSYSTEMS or not package or len(package) > 300:
+            raise ValueError("ecosystem must be a supported OSV ecosystem and package is required")
+        osv_ecosystem = OSV_ECOSYSTEMS[ecosystem_key]
+        response = self.osv.query(ecosystem=osv_ecosystem, package=package, version=version)
+        body = response.body if isinstance(response.body, dict) else {}
+        raw_vulns = body.get("vulns") if isinstance(body.get("vulns"), list) else []
+        vulns = []
+        for item in raw_vulns[:30]:
+            if not isinstance(item, dict):
+                continue
+            affected = []
+            for entry in (item.get("affected") or [])[:5]:
+                events = []
+                for rng in (entry.get("ranges") or [])[:3]:
+                    events.extend((rng.get("events") or [])[:6])
+                affected.append({
+                    "package": (entry.get("package") or {}).get("name"),
+                    "events": events,
+                    "versions_listed": len(entry.get("versions") or []),
+                })
+            vulns.append({
+                "id": item.get("id"), "aliases": (item.get("aliases") or [])[:10],
+                "summary": self._truncate(item.get("summary"), 500),
+                "severity": item.get("severity"), "published": item.get("published"), "modified": item.get("modified"),
+                "affected": affected,
+                "references": [ref.get("url") for ref in (item.get("references") or [])[:3] if isinstance(ref, dict)],
+            })
+        target = f"{osv_ecosystem}:{package}" + (f"@{version}" if version else "")
+        normalized = {"ecosystem": osv_ecosystem, "package": package, "version": version, "vulnerabilities": vulns,
+                      "total_returned": len(raw_vulns), "has_more": bool(body.get("next_page_token"))}
+        summary = (
+            f"OSV lists {len(raw_vulns)} vulnerabilities for {target}" if response.status == 200
+            else f"OSV query for {target} could not be verified: {safe_api_message(response)}"
+        )
+        evidence = self._record(
+            investigation["id"], step_id, tool_name="query_osv", response=response,
+            params={"ecosystem": osv_ecosystem, "package": package, "version": version},
+            summary=summary, normalized=normalized,
+            html_url=f"https://osv.dev/list?ecosystem={urllib.parse.quote(osv_ecosystem)}&q={urllib.parse.quote(package)}",
+        )
+        if response.status != 200:
+            return self._failed_result(response, evidence, f"OSV query for {target}")
+        limitations = ["OSV is a second source; absence in OSV does not prove absence in GitHub's database, and vice versa"]
+        if not version:
+            limitations.append("No version was given, so results cover every known affected version of the package")
+        if normalized["has_more"]:
+            limitations.append("OSV returned more results than the first page")
+        if len(raw_vulns) > 30:
+            limitations.append("Only the first 30 vulnerabilities were normalized")
+        return ToolResult(ToolResultStatus.PARTIAL if normalized["has_more"] else ToolResultStatus.SUCCESS, summary, normalized, [evidence], limitations)
 
     def _normalize_advisory(self, item: dict[str, Any]) -> dict[str, Any]:
         return {

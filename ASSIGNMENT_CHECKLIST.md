@@ -28,7 +28,7 @@
 | 404, empty, archived, missing releases | Explicit verification states and safe intake behavior | GitHub client/intake; fake-provider E2E (404 exits 2 with report) |
 | Do not invent unverifiable facts | unavailable/not-found/rate-limited are distinct evidence states; rate limits are never cached | `test_github.py` |
 | GitHub works without key | `GITHUB_TOKEN` optional | Configuration |
-| OSV optional bonus | Deliberately cut; documented in `DECISIONS.md` | N/A |
+| OSV optional bonus | `query_osv` tool: keyless POST to `api.osv.dev/v1/query`, ecosystem mapping, bounded normalization, same evidence path | `test_osv.py` |
 | LLM key from environment | `OPENAI_API_KEY`; never persisted | Config/security design |
 | OpenAI-compatible base URL and model | `OPENAI_BASE_URL`, `OPENAI_MODEL`; direct Chat Completions HTTP; `tool_choice` probe falls back to `auto`; separate LLM timeout | `test_llm.py` |
 | No hardcoded model/vendor logic | Model required from environment | Config tests/manual review |
