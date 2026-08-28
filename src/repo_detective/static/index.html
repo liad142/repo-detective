@@ -302,13 +302,13 @@
         ${v.unverified_items?.length ? `<h4>Not verified</h4><ul>${v.unverified_items.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}</div>`;
     }
 
-    // timeline — "follows previous finding" means this step cites evidence the previous step produced
+    // timeline — a re-task step is tagged so the revision boundary is visible
     const tl = $("timeline");
-    let prevEvidence = new Set();
+    let prevRevision = 1;
     s.steps.forEach((st) => {
       const pending = !st.completed_at, isErr = st.action_type === "invalid_model_action" || st.result_status === "error";
-      const lead = st.action_type === "github_tool" && st.based_on_evidence_ids?.some((id) => prevEvidence.has(id));
-      const html = `<div class="head"><span class="num">#${st.sequence}${st.revision > 1 ? ` r${st.revision}` : ""}</span><span class="tool">${esc(st.tool_name || st.action_type)}</span>${lead ? '<span class="tag">follows previous finding</span>' : ""}<span class="call">call ${esc(st.llm_call_number ?? "–")}</span></div>
+      const retask = st.revision > prevRevision; prevRevision = st.revision;
+      const html = `<div class="head"><span class="num">#${st.sequence}</span><span class="tool">${esc(st.tool_name || st.action_type)}</span>${retask ? `<span class="tag">re-task · revision ${esc(st.revision)}</span>` : ""}<span class="call">call ${esc(st.llm_call_number ?? "–")}</span></div>
         <div class="why">${esc(st.rationale)}</div>${st.question_to_answer ? `<div class="q">${esc(st.question_to_answer)}</div>` : ""}
         ${chips(st.based_on_evidence_ids, evidenceById, "based on")}
         <div class="result ${pending ? "pending" : ""}">${pending ? "checking GitHub…" : esc(st.observation)}</div>
@@ -321,7 +321,6 @@
         el.addEventListener("mouseleave", () => highlight([], false));
         if (!pending) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
       } else if (el.dataset.html !== html) { el.className = cls; el.innerHTML = html; el.dataset.html = html; }
-      prevEvidence = new Set(st.action_type === "github_tool" ? st.evidence_ids || [] : []);
     });
 
     // ledger
@@ -352,6 +351,7 @@
     document.querySelectorAll(".chip").forEach((el) => el.classList.toggle("hot", on && set.has(el.dataset.ev)));
   }
 
+  window.addEventListener("hashchange", () => { const id = location.hash.slice(1); if (id && id !== current) open(id); });
   loadPicker().then(() => { const id = location.hash.slice(1); if (id) open(id); }).catch(() => {});
 })();
 </script>
